@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { CheckCircle, XCircle, Loader2, Home } from 'lucide-react';
-import { createClientComponentClient } from '@/lib/db-client';
+import { handleEmailVerification } from '@/app/actions/verify-email';
 
 export default function EmailVerificationPage() {
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
@@ -11,54 +11,10 @@ export default function EmailVerificationPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  // Function to create user profile from metadata
-  const createUserProfile = async (user: any) => {
-    const supabase = createClientComponentClient();
-    
-    try {
-      // Check if profile already exists
-      const { data: existingProfile, error: checkError } = await supabase
-        .from('profiles')
-        .select('id, username')
-        .eq('id', user.id)
-        .single();
 
-      if (existingProfile) {
-        return;
-      }
-
-      if (checkError && checkError.code !== 'PGRST116') {
-        return;
-      }
-
-      // Profile doesn't exist, create it from user metadata
-      const username = user.user_metadata?.username;
-      
-      if (!username) {
-        return;
-      }
-
-      const { error: createError } = await supabase
-        .from('profiles')
-        .insert({
-          id: user.id,
-          username: username,
-        });
-
-      if (createError) {
-        // Profile creation failed, will be handled on first login as fallback
-        return;
-      }
-    } catch (error) {
-      // Unexpected error, will be handled on first login as fallback
-      return;
-    }
-  };
 
   useEffect(() => {
-    const handleEmailVerification = async () => {
-      const supabase = createClientComponentClient();
-      
+    const verifyEmail = async () => {
       try {
         // Check for hash fragments (most common with Supabase)
         const hashParams = new URLSearchParams(window.location.hash.substring(1));
@@ -66,78 +22,25 @@ export default function EmailVerificationPage() {
         const refreshToken = hashParams.get('refresh_token');
 
         if (accessToken && refreshToken) {
-          const { data, error } = await supabase.auth.setSession({
-            access_token: accessToken,
-            refresh_token: refreshToken
-          });
-
-          if (error) {
+          const result = await handleEmailVerification(accessToken, refreshToken);
+          
+          if (result.success) {
+            setStatus('success');
+            setMessage('Email successfully verified! Redirecting...');
+            
+            // Force full page refresh to ensure session persistence
+            setTimeout(() => {
+              window.location.href = '/';
+            }, 2000);
+            return;
+          } else {
             setStatus('error');
             setMessage('Failed to verify email. Please try again.');
             return;
           }
-
-          if (data.user && data.session) {
-            // Create profile if it doesn't exist
-            await createUserProfile(data.user);
-            
-            setStatus('success');
-            setMessage('Email successfully verified! Your account is now active.');
-            
-            // Force a page refresh to ensure session persistence
-            setTimeout(() => {
-              window.location.href = '/';
-            }, 2000);
-            return;
-          }
         }
 
-        // Check for URL search params (alternative method)
-        const tokenHash = searchParams.get('token_hash');
-        const paramType = searchParams.get('type');
 
-        if (paramType === 'email' && tokenHash) {
-          const { data, error } = await supabase.auth.verifyOtp({
-            token_hash: tokenHash,
-            type: 'email'
-          });
-
-          if (error) {
-            setStatus('error');
-            setMessage(error.message || 'Failed to verify email. The link may have expired.');
-            return;
-          }
-
-          if (data.user && data.session) {
-            // Create profile if it doesn't exist
-            await createUserProfile(data.user);
-            
-            setStatus('success');
-            setMessage('Email successfully verified! Your account is now active.');
-            
-            // Force a page refresh to ensure session persistence
-            setTimeout(() => {
-              window.location.href = '/';
-            }, 2000);
-            return;
-          }
-        }
-
-        // Check if user is already signed in (page refresh after verification)
-        const { data: { user }, error: userError } = await supabase.auth.getUser();
-        
-        if (!userError && user) {
-          // Ensure profile exists
-          await createUserProfile(user);
-          
-          setStatus('success');
-          setMessage('Email verified! Your account is ready.');
-          
-          setTimeout(() => {
-            window.location.href = '/';
-          }, 1500);
-          return;
-        }
 
         // No valid verification method found
         setStatus('error');
@@ -149,7 +52,7 @@ export default function EmailVerificationPage() {
       }
     };
 
-    handleEmailVerification();
+    verifyEmail();
   }, [router, searchParams]);
 
   const handleGoHome = () => {
