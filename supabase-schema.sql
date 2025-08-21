@@ -77,20 +77,3 @@ create trigger update_posts_updated_at
   before update on posts
   for each row
   execute function update_updated_at_column();
-
--- Insert some sample data (optional, remove if not needed)
--- Note: This requires manual user creation first through Supabase Auth UI
-/*
--- Sample profiles (replace UUIDs with actual user IDs from auth.users)
-insert into profiles (id, username) values 
-  ('00000000-0000-0000-0000-000000000001', 'demo_user'),
-  ('00000000-0000-0000-0000-000000000002', 'jane_doe')
-on conflict (id) do nothing;
-
--- Sample posts
-insert into posts (author_id, content) values 
-  ('00000000-0000-0000-0000-000000000001', 'Welcome to Micro Feed! This is my first post. 🎉'),
-  ('00000000-0000-0000-0000-000000000002', 'Just discovered this awesome new social platform. Love the clean design! 💫'),
-  ('00000000-0000-0000-0000-000000000001', 'The character limit is perfect for sharing quick thoughts. No more endless scrolling through long posts!')
-on conflict do nothing;
-*/
