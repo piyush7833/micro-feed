@@ -1,16 +1,14 @@
 'use server';
 
-import { revalidatePath } from 'next/cache';
-import { redirect } from 'next/navigation';
 import { createServerComponentClient } from '@/lib/db';
 import { 
-  createPostSchema, 
-  updatePostSchema, 
+
   searchParamsSchema 
 } from '@/lib/validators';
 import { PostWithProfile, PostsResponse } from '@/types/post';
 import { SearchParamsInput, CreatePostInput, UpdatePostInput } from '@/lib/validators';
 import { parseCursor, DEFAULT_PAGE_SIZE } from '@/lib/pagination';
+import { APP_CONFIG } from '@/lib/constants';
 
 export async function getPosts(searchParams: SearchParamsInput): Promise<PostsResponse> {
   const supabase = createServerComponentClient();
@@ -112,6 +110,20 @@ export async function getPosts(searchParams: SearchParamsInput): Promise<PostsRe
 export async function createPost(data: CreatePostInput) {
   const supabase = createServerComponentClient();
   
+  // Manual validation for HTML content - check text length but store HTML
+  const content = data.content;
+  
+  // Extract text content for length validation
+  const textContent = content.replace(/<[^>]*>/g, '').trim();
+  
+  if (!textContent) {
+    throw new Error('Post content cannot be empty');
+  }
+  
+  if (textContent.length > APP_CONFIG.MAX_POST_LENGTH) {
+    throw new Error(`Post text content must be ${APP_CONFIG.MAX_POST_LENGTH} characters or less`);
+  }
+  
   // Get current user
   const { data: { user }, error: userError } = await supabase.auth.getUser();
   
@@ -119,15 +131,12 @@ export async function createPost(data: CreatePostInput) {
     throw new Error('Authentication required');
   }
   
-  // Validate input
-  const validatedData = createPostSchema.parse(data);
-  
-  // Create post
+  // Create post (using HTML content)
   const { data: post, error } = await supabase
     .from('posts')
     .insert({
       author_id: user.id,
-      content: validatedData.content,
+      content: content,
     })
     .select(`
       *,
@@ -159,14 +168,25 @@ export async function updatePost(postId: string, data: UpdatePostInput) {
     throw new Error('Authentication required');
   }
   
-  // Validate input
-  const validatedData = updatePostSchema.parse(data);
+  // Manual validation for HTML content - check text length but store HTML
+  const content = data.content;
+  
+  // Extract text content for length validation
+  const textContent = content.replace(/<[^>]*>/g, '').trim();
+  
+  if (!textContent) {
+    throw new Error('Post content cannot be empty');
+  }
+  
+  if (textContent.length > APP_CONFIG.MAX_POST_LENGTH) {
+    throw new Error(`Post text content must be ${APP_CONFIG.MAX_POST_LENGTH} characters or less`);
+  }
   
   // Update post (RLS will ensure user can only update their own posts)
   const { data: post, error } = await supabase
     .from('posts')
     .update({
-      content: validatedData.content,
+      content: content,
       updated_at: new Date().toISOString(),
     })
     .eq('id', postId)

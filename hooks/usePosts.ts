@@ -55,7 +55,7 @@ export function usePosts(initialParams: Partial<SearchParamsInput> = {}): UsePos
           ? [...prev.posts, ...result.posts] 
           : result.posts;
         
-        // usePosts: fetchPosts completed
+
         
         return {
           ...prev,
@@ -76,11 +76,13 @@ export function usePosts(initialParams: Partial<SearchParamsInput> = {}): UsePos
   }, []); // fetchPosts doesn't need dependencies - it gets params as arguments
   
   const loadMore = useCallback(() => {
-    if (state.loading || !state.hasMore || !state.nextCursor) return;
+    if (state.loading || !state.hasMore || !state.nextCursor) {
+      return;
+    }
     
     const cursorString = btoa(JSON.stringify(state.nextCursor));
     fetchPosts({ ...searchParams, cursor: cursorString }, true);
-  }, [state.loading, state.hasMore, state.nextCursor, searchParams]);
+  }, [state.loading, state.hasMore, state.nextCursor, searchParams, fetchPosts]);
   
   const refresh = useCallback(() => {
     fetchPosts({ ...searchParams, cursor: undefined }, false);

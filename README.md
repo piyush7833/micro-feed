@@ -1,248 +1,90 @@
-# Micro Feed - Next.js Social Feed App
+# Micro Feed
 
-A minimal, modern social feed application built with Next.js 14, TypeScript, and Supabase. Users can create short posts (≤280 characters), engage with content through likes, and manage their own posts with full CRUD functionality.
+A modern social feed application built with Next.js 14, TypeScript, and Supabase. Features real-time posts, optimistic UI updates, and email authentication.
 
-## ✨ Features
+## 🚀 Quick Setup
 
-- **Authentication**: Email/password signup and signin with Supabase Auth
-- **Post Management**: Create, read, update, and delete posts (≤280 characters)
-- **Social Engagement**: Like/unlike posts with optimistic UI updates
-- **Advanced Filtering**: View all posts or filter to show only your own posts
-- **Real-time Search**: Server-side search functionality with debounced input
-- **Cursor Pagination**: Efficient pagination for better performance with large datasets
-- **Responsive Design**: Mobile-first design with Tailwind CSS
-- **Type Safety**: Full TypeScript implementation with Zod validation
-
-## 🛠 Tech Stack
-
-- **Framework**: Next.js 14 with App Router
-- **Language**: TypeScript
-- **Database**: Supabase (PostgreSQL with Row Level Security)
-- **Authentication**: Supabase Auth
-- **Styling**: Tailwind CSS
-- **Validation**: Zod
-- **State Management**: React hooks with optimistic updates
-- **Icons**: Lucide React
-
-## 🚀 Getting Started
-
-### Prerequisites
-
-- Node.js 18+ and npm
-- A Supabase account and project
-
-### Installation
-
-1. **Clone the repository**:
-   ```bash
-   git clone <your-repo-url>
-   cd micro-feed2
-   ```
-
-2. **Install dependencies**:
-   ```bash
-   npm install
-   ```
-
-3. **Set up environment variables**:
-   ```bash
-   cp .env.example .env.local
-   ```
-   
-   Fill in your Supabase project details:
-   ```env
-   NEXT_PUBLIC_SUPABASE_URL=https://your-project-ref.supabase.co
-   NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key-here
-   NEXT_PUBLIC_SITE_URL=http://localhost:3000
-   ```
-
-4. **Set up the database**:
-   
-   Run the following SQL in your Supabase SQL editor:
-
-   ```sql
-   -- Create profiles table
-   create table if not exists profiles (
-     id uuid primary key references auth.users(id) on delete cascade,
-     username text unique not null,
-     created_at timestamptz default now()
-   );
-
-   -- Create posts table
-   create table if not exists posts (
-     id uuid primary key default gen_random_uuid(),
-     author_id uuid not null references profiles(id) on delete cascade,
-     content text not null check (char_length(content) <= 280),
-     created_at timestamptz default now(),
-     updated_at timestamptz default now()
-   );
-
-   -- Create likes table
-   create table if not exists likes (
-     post_id uuid references posts(id) on delete cascade,
-     user_id uuid references profiles(id) on delete cascade,
-     created_at timestamptz default now(),
-     primary key (post_id, user_id)
-   );
-
-   -- Enable Row Level Security
-   alter table profiles enable row level security;
-   alter table posts enable row level security;
-   alter table likes enable row level security;
-
-   -- Profiles policies: read all, write self
-   create policy "read profiles" on profiles for select using (true);
-   create policy "upsert self profile" on profiles
-     for all using (auth.uid() = id) with check (auth.uid() = id);
-
-   -- Posts policies: read all; insert/update/delete only own
-   create policy "read posts" on posts for select using (true);
-   create policy "insert own posts" on posts for insert with check (auth.uid() = author_id);
-   create policy "update own posts" on posts for update using (auth.uid() = author_id);
-   create policy "delete own posts" on posts for delete using (auth.uid() = author_id);
-
-   -- Likes policies: read all; like/unlike as self
-   create policy "read likes" on likes for select using (true);
-   create policy "like" on likes for insert with check (auth.uid() = user_id);
-   create policy "unlike" on likes for delete using (auth.uid() = user_id);
-   ```
-
-5. **Configure email verification** (Optional):
-   
-   For email verification to work properly, configure your Supabase project:
-   - In Supabase Dashboard → Authentication → URL Configuration
-   - Set Site URL to: `http://localhost:3000` (or your domain)
-   - Add Redirect URL: `http://localhost:3000/email-verification`
-   
-   See `SUPABASE_CONFIG.md` for detailed setup instructions.
-
-6. **Start the development server**:
-   ```bash
-   npm run dev
-   ```
-
-   Open [http://localhost:3000](http://localhost:3000) in your browser.
-
-## 📱 Usage
-
-1. **Sign Up/Sign In**: Create an account or sign in with existing credentials
-2. **Create Posts**: Share your thoughts in 280 characters or less
-3. **Engage**: Like posts from other users with optimistic UI updates
-4. **Manage**: Edit or delete your own posts using the post menu
-5. **Filter**: Switch between viewing all posts or just your own posts
-6. **Search**: Use the search bar to find posts by keywords
-
-## 🏗 Architecture
-
-### Project Structure
-
-```
-micro-feed2/
-├── app/
-│   ├── actions/          # Server actions for posts and auth
-│   ├── email-verification/ # Email verification success page
-│   ├── globals.css       # Global styles and Tailwind imports
-│   ├── layout.tsx        # Root layout component
-│   └── page.tsx          # Main feed page
-├── components/           # React components
-│   ├── AuthModal.tsx     # Authentication modal
-│   ├── Composer.tsx      # Post creation/editing component
-│   ├── Header.tsx        # App header with user menu
-│   ├── PostCard.tsx      # Individual post display
-│   ├── SearchBar.tsx     # Search input component
-│   └── Toolbar.tsx       # Filter and search toolbar
-├── hooks/                # Custom React hooks
-│   ├── useLike.ts        # Optimistic like/unlike functionality
-│   ├── useMutatePost.ts  # Post CRUD operations
-│   └── usePosts.ts       # Post fetching and pagination
-├── lib/                  # Utility libraries
-│   ├── db.ts             # Supabase client configuration
-│   ├── pagination.ts     # Cursor pagination utilities
-│   └── validators.ts     # Zod validation schemas
-└── types/
-    └── post.ts           # TypeScript type definitions
+### 1. Environment Variables
+```bash
+cp env.template .env.local
 ```
 
-### Key Design Decisions
+Configure your `.env.local`:
+```env
+NEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+NEXT_PUBLIC_SITE_URL=http://localhost:3000
+```
 
-1. **Server Actions**: Leverages Next.js 14's server actions for direct server-side mutations
-2. **Optimistic Updates**: Likes are updated optimistically for better UX, with automatic rollback on errors
-3. **Cursor Pagination**: Uses cursor-based pagination instead of offset pagination for better performance
-4. **Row Level Security**: Database access is secured through Supabase RLS policies
-5. **Type Safety**: Full TypeScript coverage with runtime validation using Zod
+### 2. Database Initialization
+1. Create a new Supabase project
+2. Run the SQL schema from `supabase-schema.sql` in your Supabase SQL editor
+3. Configure Authentication settings:
+   - **Site URL**: `http://localhost:3000`
+   - **Redirect URLs**: `http://localhost:3000/email-verification`
 
-## 🔒 Security Features
+### 3. Install & Run
+```bash
+npm install
+npm run dev
+```
 
-- **Row Level Security (RLS)**: All database operations are secured with Supabase RLS policies
-- **Authentication Required**: Post creation, editing, deletion, and liking require authentication
-- **Ownership Validation**: Users can only edit/delete their own posts
-- **Input Validation**: All user inputs are validated both client-side and server-side
-- **SQL Injection Prevention**: Supabase client handles all SQL parameterization
+Visit `http://localhost:3000` to start using the app.
 
-## 🎨 UI/UX Features
+## 🏗️ Architecture & Design Decisions
 
-- **Responsive Design**: Works seamlessly on desktop and mobile devices
-- **Loading States**: Proper loading indicators for all async operations
-- **Error Handling**: User-friendly error messages with retry options
-- **Optimistic Updates**: Like actions update immediately with rollback on failure
-- **Character Counter**: Real-time character count with visual feedback
-- **Modern Design**: Clean, minimal interface with smooth transitions
+**Server Actions vs Route Handlers**: Chose Next.js 14 Server Actions throughout for consistency and type safety. This eliminates the client/server API boundary complexity, provides better DX with direct function calls from components, reduces boilerplate (no manual request/response handling), and enables automatic form handling with progressive enhancement. Following YAGNI principles - since this isn't a highly complex project requiring custom middleware, rate limiting, or complex API versioning, Server Actions provide simpler maintenance, automatic CSRF protection, and seamless TypeScript integration without the overhead of separate API routes. All mutations (`createPost`, `signUp`, `toggleLike`) use Server Actions with a standardized `ActionResult<T>` pattern for error handling.
 
-## 🚢 Deployment
+**Optimistic UI Strategy**: Initially used React's `useOptimistic`, but switched to a custom `useState`/`useMemo` approach to prevent state resets when server data changes. This provides more granular control over optimistic updates and cleanup logic. Posts, likes, and updates all have immediate UI feedback while server actions complete in the background.
 
-### Vercel (Recommended)
+**Authentication & RLS**: Implemented email verification flow with profile creation during email confirmation rather than signup. Row Level Security policies assume authenticated users can only modify their own content, with public read access for posts and profiles. The `user_id` foreign key constraints enforce data ownership at the database level.
 
-1. Push your code to a Git repository
-2. Connect your repository to Vercel
-3. Add your environment variables in the Vercel dashboard
-4. Deploy!
+## ⏰ Tradeoffs & Scope Decisions
 
-### Other Platforms
+**Skipped for Time**:
+- **Image uploads**: Would require file storage setup and processing pipeline
+- **Real-time subscriptions**: Supabase real-time would add WebSocket complexity  
+- **Post threading/replies**: Requires recursive data structures and UI complexity
+- **User following/feed filtering**: Needs relationship tables and complex queries
+- **Push notifications**: Would require service worker and notification service setup
 
-The app can be deployed to any platform that supports Next.js applications:
+**Technical Debt**:
+- **Testing**: No unit/integration tests due to time constraints (setting up Jest, React Testing Library, and writing comprehensive test suites would double development time)
 
-- Netlify
-- Railway
-- DigitalOcean App Platform
-- AWS Amplify
 
-## 🔧 Development Scripts
+The focus was on delivering a working MVP with solid authentication, CRUD operations, and responsive optimistic UI within a reasonable development timeframe.
 
-- `npm run dev` - Start development server
-- `npm run build` - Build for production
-- `npm run start` - Start production server
-- `npm run lint` - Run ESLint
-- `npm run type-check` - Run TypeScript compiler check
+## 📱 Features
 
-## 🤝 Contributing
+- ✅ **User Authentication** - Email verification with Supabase Auth
+- ✅ **Create/Edit/Delete Posts** - Full CRUD with optimistic updates  
+- ✅ **Like/Unlike Posts** - Instant feedback with server sync
+- ✅ **User Profiles** - Username-based profiles with avatars
+- ✅ **Search Posts** - Real-time search as you type
+- ✅ **Filter Posts** - Toggle between "All Posts" and "My Posts"
+- ✅ **Responsive Design** - Mobile-first with Tailwind CSS
+- ✅ **Infinite Scroll** - Automatic loading with Intersection Observer API
+- ✅ **Rich Text Editor** - React Quill with formatting options (bold, italic, lists, quotes, etc.)
 
-1. Fork the repository
-2. Create a feature branch: `git checkout -b feature/amazing-feature`
-3. Make your changes and commit: `git commit -m 'Add amazing feature'`
-4. Push to the branch: `git push origin feature/amazing-feature`
-5. Open a pull request
+## 🛠️ Tech Stack
 
-## 📝 License
+- **Frontend**: Next.js 14 (App Router), React, TypeScript, Tailwind CSS
+- **Backend**: Next.js Server Actions, Supabase (Auth + Database)
+- **Database**: PostgreSQL with Row Level Security
+- **Validation**: Zod schemas for type-safe forms 
+- **UI Components**: Lucide React icons, custom components
 
-This project is open source and available under the [MIT License](LICENSE).
+## 📝 Database Schema
 
-## 🆘 Troubleshooting
+Key tables:
+- `profiles` - User profile data linked to Supabase Auth
+- `posts` - User posts with content and metadata
+- `likes` - Many-to-many relationship for post likes
 
-### Common Issues
+See `supabase-schema.sql` for complete schema with RLS policies.
 
-1. **Supabase connection issues**: Verify your `.env.local` file has the correct Supabase URL and anon key
-2. **Database errors**: Ensure you've run all the SQL scripts in your Supabase project
-3. **Authentication issues**: Check that your Supabase project has email authentication enabled
-4. **Build errors**: Run `npm run type-check` to identify TypeScript issues
+## 🔗 Links
 
-### Getting Help
-
-- Check the [Next.js documentation](https://nextjs.org/docs)
-- Review [Supabase documentation](https://supabase.com/docs)
-- Open an issue on the repository for bugs or questions
-
----
-
-Built with ❤️ using Next.js 14, TypeScript, and Supabase.
-#   m i c r o - f e e d  
- 
+- [Supabase Configuration Guide](SUPABASE_CONFIG.md) - Detailed auth setup instructions
+- [Live Demo](#) - Coming soon
+- [GitHub Repository](https://github.com/piyush7833/micro-feed)

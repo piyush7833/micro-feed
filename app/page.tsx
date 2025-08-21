@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { Loader2, RefreshCw } from 'lucide-react';
 import { Header } from '@/components/Header';
 import { AuthModal } from '@/components/AuthModal';
@@ -44,6 +44,8 @@ export default function HomePage() {
     deleted: new Set(),
     published: new Set()
   });
+  
+  const loadMoreRef = useRef<HTMLDivElement>(null);
 
   // Apply optimistic updates to posts
   const optimisticPosts = useMemo(() => {
@@ -137,6 +139,40 @@ export default function HomePage() {
         };
     });
   }, [posts]);
+  
+  // Infinite scroll with Intersection Observer
+  useEffect(() => {
+    const loadMoreElement = loadMoreRef.current;
+    if (!loadMoreElement || loading || !hasMore) {
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const target = entries[0];
+        if (target.isIntersecting && !loading && hasMore) {
+          console.log('🔄 Infinite scroll triggered, loading more posts...', {
+            loading,
+            hasMore,
+            postsCount: posts.length
+          });
+          loadMore();
+        }
+      },
+      {
+        threshold: 0.1,
+        rootMargin: '100px', // Start loading 100px before the element is visible
+      }
+    );
+
+    observer.observe(loadMoreElement);
+
+    return () => {
+      if (loadMoreElement) {
+        observer.unobserve(loadMoreElement);
+      }
+    };
+  }, [loading, hasMore, loadMore, posts.length]);
   
   // Listen for successful post creation to clean up temp posts
   useEffect(() => {
@@ -353,26 +389,36 @@ export default function HomePage() {
             </div>
           )}
           
-          {/* Load more button */}
+          {/* Infinite scroll trigger */}
           {hasMore && optimisticPosts.length > 0 && (
-            <div className="text-center py-4">
-              <button
-                onClick={loadMore}
-                disabled={loading}
-                className="px-6 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2 mx-auto"
-              >
-                {loading ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    <span>Loading...</span>
-                  </>
-                ) : (
-                  <>
-                    <RefreshCw className="w-4 h-4" />
-                    <span>Load more</span>
-                  </>
-                )}
-              </button>
+            <div 
+              ref={loadMoreRef}
+              className="text-center py-8 border-2 border-dashed border-gray-200 rounded-lg"
+            >
+              {loading ? (
+                <div className="flex items-center justify-center space-x-3">
+                  <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                  <span className="text-gray-600">Loading more posts...</span>
+                </div>
+              ) : (
+                <div className="text-gray-400 text-sm">
+                   <div className="flex items-center justify-center space-x-3">
+                     <Loader2 className="w-5 h-5 animate-spin text-blue-500" />
+                     <span className="text-gray-600">Loading more posts...</span>
+                   </div>
+                   scroll here to load more posts
+                  <br />
+                  <span className="text-xs">Posts: {optimisticPosts.length} | Has More: {hasMore ? 'Yes' : 'No'}</span>
+                </div>
+              )}
+            </div>
+          )}
+          
+          {!hasMore && optimisticPosts.length > 0 && (
+            <div className="text-center py-8">
+              <div className="text-gray-400 text-sm">
+                🎉 You've reached the end! No more posts to load.
+              </div>
             </div>
           )}
         </div>

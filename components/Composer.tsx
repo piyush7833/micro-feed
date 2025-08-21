@@ -3,7 +3,8 @@
 import { useState } from 'react';
 import { Send, X } from 'lucide-react';
 import { useMutatePost } from '@/hooks/useMutatePost';
-import { createPostSchema, updatePostSchema } from '@/lib/validators';
+import { RichTextEditor } from './RichTextEditor';
+import { APP_CONFIG } from '@/lib/constants';
 
 interface ComposerProps {
   mode?: 'create' | 'edit';
@@ -37,40 +38,56 @@ export function Composer({
     ? createPostMutation.loading 
     : updatePostMutation.loading;
   
+  const getTextContent = (html: string) => {
+    // Convert HTML to plain text for validation
+    const div = document.createElement('div');
+    div.innerHTML = html;
+    return div.textContent || div.innerText || '';
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     
     try {
-      // Validate content
-      const schema = mode === 'create' ? createPostSchema : updatePostSchema;
-      const validatedData = schema.parse({ content });
+      // Validate text content length but send HTML content
+      const textContent = getTextContent(content);
+      
+      // Manual validation for text content length
+      if (!textContent.trim()) {
+        throw new Error('Post content cannot be empty');
+      }
+      if (textContent.length > APP_CONFIG.MAX_POST_LENGTH) {
+        throw new Error(`Post text content must be ${APP_CONFIG.MAX_POST_LENGTH} characters or less`);
+      }
+      
+      const actualContent = content; // Use the HTML content
       
       if (mode === 'create') {
         // Add optimistic update immediately
         if (onOptimisticCreate) {
-          onOptimisticCreate(validatedData.content);
+          onOptimisticCreate(actualContent);
           setContent(''); // Clear content immediately for better UX
         }
         
         try {
-          const createdPost = await createPostMutation.mutate(validatedData);
+          const createdPost = await createPostMutation.mutate({ content: actualContent });
           // Server creation succeeded - update optimistic post with real ID
           onOptimisticSuccess?.(createdPost);
         } catch (error) {
           // If creation fails, restore the content so user can retry
           if (onOptimisticCreate) {
-            setContent(validatedData.content);
+            setContent(actualContent);
           }
           throw error; // Re-throw to show error message
         }
       } else if (mode === 'edit' && postId) {
         // Update optimistically - call onComplete immediately with new content
-        onComplete?.(validatedData.content);
+        onComplete?.(actualContent);
         
         // Then update on server in background
         try {
-          await updatePostMutation.mutate(postId, validatedData);
+          await updatePostMutation.mutate(postId, { content: actualContent });
           // Server update succeeded - optimistic state will be cleaned up automatically  
         } catch (error) {
           console.error('Failed to update on server:', error);
@@ -97,30 +114,20 @@ export function Composer({
     onCancel?.();
   };
   
-  const remainingChars = 280 - content.length;
+  const textLength = getTextContent(content).length;
+  const remainingChars = 500 - textLength;
   const isOverLimit = remainingChars < 0;
-  const isEmpty = content.trim().length === 0;
+  const isEmpty = textLength === 0;
   
   return (
     <form onSubmit={handleSubmit} className="space-y-3">
       <div className="relative">
-        <textarea
+        <RichTextEditor
           value={content}
-          onChange={(e) => setContent(e.target.value)}
+          onChange={setContent}
           placeholder={placeholder}
-          rows={mode === 'edit' ? 3 : 4}
-          className={`w-full p-3 border rounded-lg resize-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors ${
-            isOverLimit ? 'border-red-300 focus:ring-red-500' : 'border-gray-300'
-          }`}
           disabled={isLoading}
         />
-        
-        {/* Character count */}
-        <div className={`absolute bottom-3 right-3 text-xs ${
-          isOverLimit ? 'text-red-500' : remainingChars < 20 ? 'text-yellow-500' : 'text-gray-400'
-        }`}>
-          {remainingChars}
-        </div>
       </div>
       
       {/* Error message */}
@@ -133,7 +140,7 @@ export function Composer({
       {/* Action buttons */}
       <div className="flex items-center justify-between">
         <div className="text-xs text-gray-500">
-          {mode === 'create' ? 'Share your thoughts' : 'Edit your post'}
+          {textLength}/280 characters
         </div>
         
         <div className="flex items-center space-x-2">

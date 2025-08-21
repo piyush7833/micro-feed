@@ -155,9 +155,31 @@ export function PostCard({ post, currentUserId, onPostUpdate, onPostDelete, onRe
         
         {/* Content */}
         <div className="mb-4">
-          <p className="text-gray-900 whitespace-pre-wrap break-words">
-            {post.content}
-          </p>
+          {post.content.includes('<') && post.content.includes('>') ? (
+            <div 
+              className="text-gray-900 prose prose-sm max-w-none
+                [&_h1]:text-xl [&_h1]:font-semibold [&_h1]:my-2
+                [&_h2]:text-lg [&_h2]:font-semibold [&_h2]:my-2  
+                [&_h3]:text-base [&_h3]:font-semibold [&_h3]:my-1
+                [&_strong]:font-semibold
+                [&_em]:italic
+                [&_u]:underline
+                [&_s]:line-through
+                [&_ul]:list-disc [&_ul]:ml-6 [&_ul]:my-2
+                [&_ol]:list-decimal [&_ol]:ml-6 [&_ol]:my-2
+                [&_blockquote]:border-l-4 [&_blockquote]:border-gray-300 [&_blockquote]:pl-4 [&_blockquote]:my-4 [&_blockquote]:italic [&_blockquote]:bg-gray-50 [&_blockquote]:py-2 [&_blockquote]:rounded-r
+                [&_code]:bg-gray-100 [&_code]:text-gray-800 [&_code]:px-1 [&_code]:py-0.5 [&_code]:rounded [&_code]:text-sm [&_code]:font-mono
+                [&_pre]:bg-gray-800 [&_pre]:text-gray-100 [&_pre]:p-4 [&_pre]:rounded [&_pre]:overflow-x-auto [&_pre]:my-4
+                [&_pre_code]:bg-transparent [&_pre_code]:text-inherit [&_pre_code]:p-0
+                [&_a]:text-blue-500 [&_a]:no-underline [&_a:hover]:underline
+                [&_p]:my-1 [&_p:first-child]:mt-0 [&_p:last-child]:mb-0"
+              dangerouslySetInnerHTML={{ __html: post.content }}
+            />
+          ) : (
+            <p className="text-gray-900 whitespace-pre-wrap break-words">
+              {post.content}
+            </p>
+          )}
         </div>
         
         {/* Actions */}
@@ -180,7 +202,10 @@ export function PostCard({ post, currentUserId, onPostUpdate, onPostDelete, onRe
           </button>
           
           <div className="text-xs text-gray-400">
-            {post.content.length}/280
+            {post.content.includes('<') && post.content.includes('>') 
+              ? `${post.content.replace(/<[^>]*>/g, '').length}/500`
+              : `${post.content.length}/500`
+            }
           </div>
         </div>
       </div>

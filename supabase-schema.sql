@@ -12,7 +12,7 @@ create table if not exists profiles (
 create table if not exists posts (
   id uuid primary key default gen_random_uuid(),
   author_id uuid not null references profiles(id) on delete cascade,
-  content text not null check (char_length(content) <= 280),
+  content text not null check (char_length(content) <= 2000 AND char_length(content) > 0),
   created_at timestamptz default now(),
   updated_at timestamptz default now()
 );
