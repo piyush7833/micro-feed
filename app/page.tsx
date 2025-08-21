@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo, useRef } from 'react';
 import { Loader2, RefreshCw } from 'lucide-react';
 import { Header } from '@/components/Header';
 import { AuthModal } from '@/components/AuthModal';
-import { Composer } from '@/components/Composer';
+import { CreatePostComposer } from '@/components/CreatePostComposer';
 import { PostCard } from '@/components/PostCard';
 import { Toolbar } from '@/components/Toolbar';
 import { usePosts } from '@/hooks/usePosts';
@@ -226,7 +226,7 @@ export default function HomePage() {
               <h2 className="text-lg font-semibold text-gray-900">Create a post</h2>
               <p className="text-sm text-gray-500">Share what's on your mind</p>
             </div>
-            <Composer 
+                          <CreatePostComposer 
               onOptimisticCreate={(content) => {
                 if (user) {
                   const tempId = `temp-${Date.now()}`;
@@ -248,34 +248,22 @@ export default function HomePage() {
                     ...prev,
                     added: [optimisticPost, ...prev.added]
                   }));
+                  return tempId; // Return temp ID for tracking
                 }
+                return '';
               }}
-              onOptimisticSuccess={(realPost) => {
-                // Update the temp post with real ID and mark as published
-                setOptimisticPostUpdates(prev => {
-                  const latestTempPost = prev.added.find(p => p.id.startsWith('temp-'));
-                  if (latestTempPost && realPost) {
-                    // Replace temp post with real post data
-                    const updatedAdded = prev.added.map(post => 
-                      post.id === latestTempPost.id 
-                        ? { ...realPost, profiles: post.profiles } // Keep the optimistic profile
-                        : post
-                    );
-                    return {
-                      ...prev,
-                      added: updatedAdded,
-                      published: new Set([...Array.from(prev.published || new Set()), realPost.id])
-                    };
-                  } else if (latestTempPost) {
-                    // Fallback: just mark as published if no real post data
-                    return {
-                      ...prev,
-                      published: new Set([...Array.from(prev.published || new Set()), latestTempPost.id])
-                    };
-                  }
-                  return prev;
-                });
+              onOptimisticSuccess={(tempId, realPost) => {
+                // Replace the temp post with real post data  
+                setOptimisticPostUpdates(prev => ({
+                  ...prev,
+                  added: prev.added.map(post => 
+                    post.id === tempId 
+                      ? { ...realPost, profiles: post.profiles } // Keep optimistic profile
+                      : post
+                  )
+                }));
               }}
+
             />
           </div>
         )}
@@ -338,24 +326,26 @@ export default function HomePage() {
                 }));
               }}
               onPostDelete={(postId) => {
-                setOptimisticPostUpdates(prev => ({
-                  ...prev,
-                  deleted: new Set([...Array.from(prev.deleted), postId])
-                }));
+                setOptimisticPostUpdates(prev => {
+                  // Check if this post is in the added array (newly created)
+                  const isNewlyAdded = prev.added.some(post => post.id === postId);
+                  
+                  if (isNewlyAdded) {
+                    // Remove from added array (it was never saved to server)
+                    return {
+                      ...prev,
+                      added: prev.added.filter(post => post.id !== postId)
+                    };
+                  } else {
+                    // Add to deleted set (for server posts)
+                    return {
+                      ...prev,
+                      deleted: new Set([...Array.from(prev.deleted), postId])
+                    };
+                  }
+                });
               }}
-              onRevertUpdate={(postId) => {
-                setOptimisticPostUpdates(prev => ({
-                  ...prev,
-                  updated: Object.fromEntries(Object.entries(prev.updated).filter(([id]) => id !== postId))
-                }));
-              }}
-              onRevertDelete={(postId, originalPost) => {
-                setOptimisticPostUpdates(prev => ({
-                  ...prev,
-                  deleted: new Set(Array.from(prev.deleted).filter(id => id !== postId))
-                }));
-              }}
-              optimisticUpdates={optimisticPostUpdates}
+
             />
           ))}
           
