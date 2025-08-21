@@ -1,11 +1,11 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { CheckCircle, XCircle, Loader2, Home } from 'lucide-react';
 import { handleEmailVerification } from '@/app/actions/verify-email';
 
-export default function EmailVerificationPage() {
+function EmailVerificationContent() {
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
   const [message, setMessage] = useState('');
   const router = useRouter();
@@ -39,8 +39,6 @@ export default function EmailVerificationPage() {
             return;
           }
         }
-
-
 
         // No valid verification method found
         setStatus('error');
@@ -79,7 +77,7 @@ export default function EmailVerificationPage() {
                 <p className="text-gray-600 mb-4">{message}</p>
                 <div className="bg-green-50 border border-green-200 rounded-lg p-3 mb-4">
                   <p className="text-sm text-green-700">
-                    🎉 Redirecting to home page in 3 seconds...
+                    🎉 Redirecting to home page ...
                   </p>
                 </div>
               </>
@@ -123,5 +121,23 @@ export default function EmailVerificationPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function EmailVerificationPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+        <div className="max-w-md w-full">
+          <div className="bg-white rounded-lg shadow-lg p-8 text-center">
+            <Loader2 className="w-16 h-16 mx-auto text-blue-500 animate-spin mb-4" />
+            <h1 className="text-2xl font-bold text-gray-900 mb-2">Loading...</h1>
+            <p className="text-gray-600">Please wait...</p>
+          </div>
+        </div>
+      </div>
+    }>
+      <EmailVerificationContent />
+    </Suspense>
   );
 }
